@@ -1,0 +1,276 @@
+==============================================================================
+SHRAA - FINAL PROJECT DOCUMENTATION
+Personal Android voice assistant  |  by Abhirah
+App name: shraa   Package: com.abhirha.shraa   Kotlin + Jetpack Compose
+Min SDK 21 | Target/Compile SDK 34 | Gradle 9.6.1 | AGP 9.4.0 | Kotlin 2.4.10
+Document version: 2026-10-24 (final, matches the current code)
+==============================================================================
+
+1. WHAT SHRAA IS
+------------------------------------------------------------------------------
+SHRAA is a voice-first personal assistant for one phone (private use).
+Say "Shraa suno" (like "Hey Google"). She wakes up, shows a small pop-up,
+listens to ONE command, says what she is doing, does it, and goes back to rest
+until the wake phrase is said again. Hindi, English and Hinglish are
+understood. She speaks in a female voice ("kar rahi hu").
+
+Online intelligence: Google Gemini API only. Without internet or a key, an
+offline basic mode still handles simple commands (section 7).
+
+2. FEATURES
+------------------------------------------------------------------------------
+Wake and voice
+- Wake phrase "Shraa suno" (also "Shraa suno <command>" in one sentence).
+  "Shraa" alone or any other talk is ignored. The name must be the 1st or 2nd
+  word. Optional "Sensitive wake word" also accepts mishearings like "Sara suno".
+- Wake pop-up: small SHRAA card over any app and the lock screen; the screen
+  turns on. Settings switch "Lock screen popup" turns this off while locked
+  (SHRAA then still answers by voice).
+- One command per wake. Optional Follow-up mode keeps listening a few seconds
+  after a task so "Shraa suno" is not needed again (default OFF).
+- Acknowledge first: she says "Haan, main YouTube khol rahi hu" and the task
+  starts only after that sentence has finished. After success she stays quiet;
+  she speaks again only on failure or when she needs a choice from you.
+- Stop phrases such as "bas" end the conversation.
+- Quiet listening: the recognizer's start "bip" while idle is muted (see 6).
+
+Apps
+- Open ANY installed app by name; misspelled or misheard names ("spotfy",
+  "sim music") map to the closest INSTALLED app. She never suggests an app that
+  is not on the phone. Hindi-script names work.
+- Play a song/video (PLAY_MEDIA) or search (SEARCH_IN_APP) inside ANY installed
+  app. Spotify and YouTube Music use their own links; other apps are operated
+  through their own screen with Phone control (open app, tap search, type,
+  press search, open first result, press Play). YouTube is used only when named
+  or when no app is named.
+- Play Store install (INSTALL_APP): "Play Store kholo aur <app> install karo"
+  works for any app name. She opens the page (by package if the AI is sure,
+  otherwise by searching the closest result), taps Install and the follow-up
+  Accept / Install anyway button. Says "pehle se installed hai" if already there.
+- Media control (APP_CONTROL): play, pause, stop, next, previous, forward,
+  rewind, nowplaying for a connected music/video app.
+
+Messages and calls
+- Call by contact name (dialer opens unless Phone permission is granted).
+- SEND_MESSAGE ("bhejo", "send karo") really sends: SMS directly with the SMS
+  permission; WhatsApp, Instagram, Facebook, Telegram and other apps through
+  Phone control (chat opened, Send tapped). Result is spoken: "Message bhej
+  diya." or "Send button nahi mila, khud send dabao."
+- DRAFT_MESSAGE ("open WhatsApp and type ...", "likh do") only opens the chat
+  and types the text; it never sends.
+- Several contacts with the same name (or one contact with several numbers):
+  she reads the options ("Pehla, ..., Doosra, ...") and asks which one. Answer
+  with the name or "pehla / doosra / teesra". Nothing is called until you choose.
+
+Time, routine, phone control
+- Alarms/reminders: "kal subah 6 baje mujhe utha dena" -> alarm in the phone's
+  clock app (SET_ALARM) and a spoken confirmation. "roz" = daily repeat. An
+  alarm more than 24 hours away becomes a calendar event (she says so).
+  Reminders with text, calendar events (CALENDAR_EVENT).
+- "Good morning" brief (DAILY_BRIEF): time, next alarm, calendar events of the
+  next 24 h, weather (Open-Meteo, free, no key). Time and alarm always work,
+  also offline. Calendar and Location permissions are optional.
+- Volume (up, down, mute, unmute, max, min or percent), torch on/off, settings
+  pages (wifi, bluetooth, display, sound, battery, location, apps, airplane).
+- UI_CONTROL inside connected apps: back, home, recents, notifications,
+  quicksettings, lock, screenshot (API 28+), scroll up/down, click <text>,
+  type <text>.
+- Conversation context for 3 minutes ("YouTube kholo", then "ab Arijit Singh
+  ka song chalao"). The AI sees the last 6 turns and what was done.
+- General questions: ANSWER_ONLY, a short spoken answer.
+
+Connected Apps
+- Settings > Connected Apps lists every installed app (icon, name, category:
+  Music / Video / Games / Social / Other) with per-app switch, search, category
+  filter, "Ye sab connect" / "Ye sab hatao". Default = all apps connected.
+  Not connected -> "<app> SHRAA se connected nahi hai. Settings me Connected
+  Apps se connect karo."
+- Access levels (one-time, cover all connected apps):
+    Media control = Notification access (ShraaNotificationListener)
+    Phone control = Accessibility (ShraaAccessibilityService); works only inside
+    connected apps (back/home/recents/notifications work anywhere).
+- Android does not let one app grant another app's permissions.
+
+Profile tab
+- Screen time of the last 7 days (bar chart + average), app-wise usage (today /
+  7 days), command statistics of the last 7 days (green = done, red = failed,
+  success rate, most used actions) and recent commands. History is stored only
+  on the phone (last 500 commands) and can be cleared. Needs Usage Access for
+  screen time and app usage.
+
+3. SCREENS
+------------------------------------------------------------------------------
+- Top bar: SHRAA name (left), Settings button (right; a back arrow inside it).
+- Bottom bar (exactly three buttons): Home, Profile, Background ON/OFF.
+- Home: animated SHRAA orb (tap = start listening, tap again = stop), status
+  label, what she heard, and a red reason line if idle listening has a problem.
+- Profile: stats and history (section 2).
+- Settings:
+    BACKGROUND ASSISTANT  Background switch, Lock screen popup, Quiet listening,
+                          Sensitive wake word, Follow-up mode
+    ONLINE AI             Gemini key box, Save & Connect (tests the key), Remove
+    VOICE                 Listening language (Hindi/Hinglish or English), SHRAA
+                          voice, speed, pitch, Test voice
+    CONNECTED APPS        app list, access levels (Media / Phone control)
+    PERMISSIONS & SETUP   Microphone, Notifications, Contacts, Phone calls, SMS,
+                          Calendar, Location (approx.), Usage access, Display
+                          over other apps, Battery unrestricted
+
+4. HOW IT WORKS (FLOW)
+------------------------------------------------------------------------------
+Mic -> WakeWordEngine (short speech sessions, checks only for "Shraa suno")
+    -> AssistantController.onWake()   [pop-up opens]
+    -> SpeechInput (the command, listened for immediately)
+    -> IntentClient (Gemini picks actions as a forced function call
+       "execute_plan"; offline parser if there is no internet/key)
+    -> TTS says the acknowledgement ("Haan, ...")   <-- first
+    -> ActionExecutor runs the actions               <-- after speech ends
+    -> History saved -> rest mode (wait for "Shraa suno")
+
+Action types: OPEN_APP, PLAY_MEDIA, SEARCH_IN_APP, MEDIA_CONTROL, CALL,
+SEND_MESSAGE, DRAFT_MESSAGE, SET_REMINDER, CALENDAR_EVENT, OPEN_SETTINGS,
+SET_ALARM, VOLUME, TORCH, DAILY_BRIEF, INSTALL_APP, APP_CONTROL, UI_CONTROL,
+ANSWER_ONLY, UNSUPPORTED.
+
+Source files (com.abhirha.shraa)
+  MainActivity, ShraaApplication, AssistantController, WakePopupActivity
+  ai/       AiProvider, ProviderApi, PlanSchema (tool schema + system prompt),
+            IntentClient, ApiKeyStore, ShraaModels
+  actions/  ActionExecutor, LocalIntent (offline parser), NameMatch, DailyBrief,
+            SpokenTime
+  voice/    SpeechInput, WakeWord, WakeWordEngine, QuietEarcon, TtsManager
+  service/  AssistantService (microphone foreground service + Stop button),
+            ShraaAccessibilityService, ShraaNotificationListener
+  apps/     AppCatalog, ConnectedAppsStore, MediaAccess
+  data/     SettingsStore, HistoryRepository
+  usage/    UsageStatsHelper
+  ui/       HomeScreen, ProfileScreen, SettingsScreen, ConnectedAppsUi,
+            ShraaCore (orb), Components, Theme
+  res/      xml/accessibility_config.xml, backup_rules.xml,
+            data_extraction_rules.xml, network_security_config.xml;
+            launcher icons (blue, black, white); logo/ folder (icon + wordmark)
+
+5. ONLINE AI: GOOGLE GEMINI
+------------------------------------------------------------------------------
+Why Gemini: fast replies, native function calling (reliable structured output),
+good Hindi/Hinglish, free tier for personal use.
+
+  Default model     gemini-flash-latest (auto-updating alias)
+  Backup models     gemini-flash-lite-latest, then gemini-3.1-flash-lite
+  Endpoint          https://generativelanguage.googleapis.com/v1beta/models
+  Key               from aistudio.google.com (looks like AIza... or AQ....)
+
+Behaviour
+- The model is built in (no model field in Settings).
+- 5xx / timeout: retried with a short wait, then the next backup model.
+  429 or unreadable output: next model at once. Wrong key (401/403): stop.
+  No internet: stop and fall back to the offline parser.
+- Settings > Online AI > Save & Connect sends a tiny test request and shows OK
+  with the model name, or the exact error.
+- The key is stored encrypted (EncryptedSharedPreferences on API 23+; private
+  preferences on API 21-22). It is never hardcoded or logged.
+- Earlier versions also had other providers. Only Gemini remains; any old
+  ZenMux / FreeLLMAPI key still on the phone is deleted at app start.
+- Gemini free tier: limits are per project (aistudio.google.com/rate-limit) and
+  Google may use free-tier content to improve its products. Do not speak
+  sensitive data to SHRAA on the free tier.
+
+6. BACKGROUND ASSISTANT (LIKE "HEY GOOGLE")
+------------------------------------------------------------------------------
+- Background ON starts a microphone foreground service ("SHRAA is active",
+  Stop button in the notification). Nothing happens until "Shraa suno".
+- WakeWordEngine runs short SpeechRecognizer sessions back to back, preferring
+  on-device recognition. Heard speech is only matched against the wake phrase;
+  it is not shown, stored or sent to Gemini.
+- Quiet listening (default ON): the recognizer's start "bip" is muted for a
+  moment around each idle session (QuietEarcon). Only streams SHRAA muted itself
+  are restored; playing music is never muted and calls still ring. The bip,
+  pop-up and listening animation appear only AFTER "Shraa suno".
+- If idle listening has a real problem (no offline speech pack, mic busy,
+  recognizer crashing) the Home screen shows the reason in red.
+- Wake pop-up: closes about 1.4 s after SHRAA is back in rest mode; X or tap
+  outside only closes the card, it never stops SHRAA. Without "Display over
+  other apps" a full-screen notification opens the same card.
+
+7. OFFLINE BASIC MODE
+------------------------------------------------------------------------------
+No internet, no key, or every AI call failing: LocalIntent still handles
+alarms/reminders, volume, torch, open app, call, settings, media keys, play on
+YouTube, time and "good morning". Anything else: she says it needs internet.
+Offline AI answers would need an on-device model, which is NOT included.
+Speech recognition offline needs an offline speech pack on the phone.
+
+8. SETUP / BUILD
+------------------------------------------------------------------------------
+1. Open the folder in Android Studio or Code on the Go; Gradle sync (9.6.1).
+   See BUILD_NOTE.txt for the build configuration details.
+2. Run on a real phone (emulators are poor for speech).
+3. Settings > Online AI: paste the Gemini key, Save & Connect.
+4. Grant permissions: Microphone (required); Notifications; Contacts, Phone,
+   SMS (calls/messages); Calendar + Location (good-morning brief); Usage access
+   (Profile stats); Display over other apps (wake pop-up and opening apps from
+   the background); Battery unrestricted (optional, keeps listening alive).
+   Optional: connect apps and enable Media control (Notification access) and
+   Phone control (Accessibility) in Settings > Connected Apps.
+5. Home: turn Background ON and say "Shraa suno", or tap the orb.
+
+Release signing (optional): app/build.gradle.kts reads release.properties
+(storeFile, storePassword, keyAlias, keyPassword) only if that file exists.
+
+9. TROUBLESHOOTING
+------------------------------------------------------------------------------
+HTTP 404 model not available   The built-in model alias was retired. Update
+    the default model in ai/AiProvider.kt or use the latest app version.
+HTTP 503 "high demand"         Gemini is busy; SHRAA retries and tries the
+    backup models. Try again in a moment.
+HTTP 429                       Free-tier rate limit; wait a little.
+"AI API key galat lag rahi hai"  Re-paste the key in Settings > Online AI.
+Pop-up does not appear         Allow "Display over other apps". Android 10+
+    blocks background activity starts without it. SHRAA still works by voice.
+She does not wake              Say "Shraa suno" at the start of the sentence,
+    close to the phone; allow Battery "unrestricted"; check Background is ON;
+    install an offline speech pack for the chosen language.
+Bip every few seconds          Keep "Quiet listening" ON.
+Opens an app but nothing plays Enable Phone control (Accessibility) and connect
+    the app. Games and apps that draw their own screen cannot be operated.
+Message not sent               Turn on Phone control and connect the app;
+    allow SMS permission for SMS.
+
+10. KNOWN LIMITS (ANDROID RULES)
+------------------------------------------------------------------------------
+- Standby keeps the microphone open (Android shows its mic indicator). Wake
+  checks are local; nothing goes to Gemini before "Shraa suno" was heard.
+- Wake detection uses SpeechRecognizer loops: more battery than a dedicated
+  hotword engine, and some phones restart or beep sessions. Replacing it with
+  a dedicated offline wake-word engine is a possible future improvement.
+- Android cannot switch Wi-Fi/Bluetooth directly; SHRAA opens settings pages.
+- Operating other apps works through Accessibility; apps that block screen
+  access (banking) or draw their own screen (games) cannot be operated and
+  SHRAA says so honestly.
+- Only official Android intents and APIs: no secret control of other apps.
+- Android 10+ may block opening apps from the background.
+
+11. PRIVACY AND SECURITY
+------------------------------------------------------------------------------
+- Personal-use app (QUERY_ALL_PACKAGES, Accessibility, Notification access).
+  Do not publish it with personal keys.
+- Nothing on screen is read out or stored by the Accessibility service; it only
+  acts when you ask by voice, inside connected apps.
+- Command history and settings stay on the phone (backup disabled).
+- BEFORE PUSHING TO GITHUB: release.keystore and release.properties (keystore
+  passwords) are inside the project folder and are NOT listed in .gitignore.
+  Add them to .gitignore (also .gradle/ and .cg/), and never commit them.
+  If they were committed before, remove them from history and make a new
+  keystore. The Gemini key is not in the source code.
+
+12. CHANGE LOG (SHORT)
+------------------------------------------------------------------------------
+2026-10-04  Gemini switch, wake word, one command per wake, app icon
+2026-10-06  Code cleanup, 360-degree orb, all-app access, contact choice
+2026-10-17  Wake pop-up, acknowledge-first flow, alarms, morning brief, phone
+            automation, context, offline mode, Stats, Connected Apps,
+            app-name suggestions, send vs type, Play Store install
+2026-10-18  "Shraa suno" wake like Hey Google, quiet listening, search/play in
+            any app, lock screen popup switch
+2026-10-24  Online AI reduced to Google Gemini only; documentation finalised
+==============================================================================

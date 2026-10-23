@@ -1,0 +1,21 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+/build/
+/app/build/
+.DS_Store
+
+# Secrets - never commit
+release.keystore
+release.properties
+*.jks
+*.keystore
+
+# IDE / tool caches
+.cg/
+.gradle/
+*.apk
+*.aab
+.kotlin/
+.kotlin/

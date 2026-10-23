@@ -1,0 +1,26 @@
+SHRAA - Gradle 9.6.1 build configuration
+
+App name: shraa
+Package: com.abhirha.shraa (namespace + applicationId)
+Language: Kotlin
+Min SDK: 21 (Android 5.0 Lollipop)  |  Target/Compile SDK: 34
+Gradle: 9.6.1
+Android Gradle Plugin: 9.4.0
+Kotlin Gradle Plugin: 2.4.10
+JDK: 17+ (Code on the Go reports JDK 21)
+
+Min SDK 21 notes:
+- java.time is available via core library desugaring (desugar_jdk_libs).
+- Notification channel, network capability checks, overlay/battery permission rows are guarded by API level.
+- API key: EncryptedSharedPreferences on Android 6.0+ (API 23+); on API 21-22 it falls back to app-private prefs.
+- Legacy (non-adaptive) launcher icon added for API 21-25.
+
+The wrapper properties point to Gradle 9.6.1 and the project includes gradle/wrapper/gradle-wrapper.jar, so `bash gradlew --version` should report 9.6.1 (in Code on the Go the installed Gradle is used if the wrapper cannot download).
+
+Release signing is optional: app/build.gradle.kts reads release.properties (storeFile, storePassword, keyAlias, keyPassword) only if it exists. release.keystore and release.properties are listed in .gitignore and must never be pushed to GitHub.
+
+Online AI: Google Gemini only (key is entered in the app, never stored in the source).
+
+AGP 9 built-in Kotlin: the 'org.jetbrains.kotlin.android' plugin and kotlinOptions{} are removed on purpose (AGP 9 handles Kotlin itself). The Compose compiler plugin (org.jetbrains.kotlin.plugin.compose) is still applied.
+
+If you extract this over an existing Code on the Go project, delete leftover template files (e.g. app/src/main/res/layout, values-night, values-v*, other themes/styles/colors xml, gradle/libs.versions.toml) so no Theme.Material3.* reference remains. This project does not use Material3 XML themes or a version catalog.

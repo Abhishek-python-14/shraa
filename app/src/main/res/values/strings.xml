@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">shraa</string>
+    <string name="accessibility_desc">Lets SHRAA press Back/Home, scroll, tap buttons and type inside the apps you connected to it, only when you ask by voice. Nothing on screen is read out or stored.</string>
+</resources>
